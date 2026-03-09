@@ -82,4 +82,4 @@ EOF
 
 echo "✅  Treasure hunt created in ./$BASE/"
 echo "    Share the '$BASE' folder with students."
-echo "    The winning phrase is: b4sh"
+echo "    Find the winning phrase!"
