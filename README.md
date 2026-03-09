@@ -1,6 +1,6 @@
-#🏴‍☠️  WELCOME TO THE BASH TREASURE HUNT  🏴‍☠️
+ #WELCOME TO THE BASH TREASURE HUNT  
 
-Your mission: find the ONE treasure.txt that contains the secret phrase.
+🏴‍☠️ Your mission: find the ONE treasure.txt that contains the secret phrase. 🏴‍☠️
 
 COMMANDS YOU'LL NEED:
   ls          — list what's in the current folder
