@@ -1,69 +1,118 @@
 #!/bin/bash
 
 # ============================================================
-#  BASH TREASURE HUNT — Setup Script
-#  For high school students learning basic terminal navigation
-#  Commands practiced: ls, cd, cat
+#  BASH TREASURE HUNT v2 — Randomised Tree
+#  Each directory gets 1-3 random subdirs, recursively
+#  Max depth: 4 levels (keeps it manageable for students)
 # ============================================================
 
 BASE="treasure_hunt"
 rm -rf "$BASE"
 mkdir -p "$BASE"
 
-# --- Helper: write a fake treasure.txt ---
+FAKE_MSGS=(
+  "Nope, keep looking!"
+  "So close... or are you?"
+  "This is not the treasure."
+  "Nice try, pirate."
+  "Wrong chest, matey!"
+  "The treasure is elsewhere..."
+  "You found nothing but dust."
+  "A dead end. Turn back!"
+  "Almost! (not really)"
+  "This ain't it chief."
+  "Cold... very cold."
+  "The real treasure was the friends we made along the way. (It wasn't.)"
+)
+
+FOLDER_NAMES=(
+  cave cavern cove cliff hollow tunnel grotto lagoon marsh reef
+  shipwreck ruins fortress dungeon tower vault cellar attic barn
+  jungle swamp tundra canyon plateau ridge crater basin delta
+  alley dock warehouse sewer rooftop courtyard chapel library
+)
+
 fake() {
-  local msgs=(
-    "Nope, keep looking!"
-    "So close... or are you?"
-    "This is not the treasure."
-    "Nice try, pirate."
-    "Wrong chest, matey!"
-    "The treasure is elsewhere..."
-    "You found nothing but dust."
-    "A dead end. Turn back!"
-    "Almost! (not really)"
-    "This ain't it chief."
-  )
-  # pick a random message
-  echo "${msgs[$((RANDOM % ${#msgs[@]}))]}" > "$1"
+  echo "${FAKE_MSGS[$((RANDOM % ${#FAKE_MSGS[@]}))]}" > "$1"
+}
+
+# Shuffle and pick a random folder name (avoid repeats within a parent)
+used_names=()
+pick_name() {
+  local name
+  while true; do
+    name="${FOLDER_NAMES[$((RANDOM % ${#FOLDER_NAMES[@]}))]}"
+    # allow reuse across different branches, just pick freely
+    echo "$name"
+    return
+  done
 }
 
 # ============================================================
-# STRUCTURE
+# RECURSIVE BUILDER
+# build_dir <path> <current_depth> <max_depth>
 # ============================================================
+TREASURE_PLACED=0
 
-# --- Path 1: island/cave/deep/secret ---
-mkdir -p "$BASE/island/cave/deep/secret"
-fake         "$BASE/island/treasure.txt"
-fake         "$BASE/island/cave/treasure.txt"
-fake         "$BASE/island/cave/deep/treasure.txt"
-echo "b4sh"  > "$BASE/island/cave/deep/secret/treasure.txt"   # ← THE REAL ONE
+build_dir() {
+  local path="$1"
+  local depth="$2"
+  local max_depth="$3"
 
-# --- Path 2: forest/hollow/old_tree ---
-mkdir -p "$BASE/forest/hollow/old_tree"
-fake         "$BASE/forest/treasure.txt"
-fake         "$BASE/forest/hollow/treasure.txt"
-fake         "$BASE/forest/hollow/old_tree/treasure.txt"
+  # Always place a treasure.txt in this dir (real or fake)
+  # Real one placed exactly once, randomly, at depth >= 2
+  local place_real=0
+  if [[ $TREASURE_PLACED -eq 0 && $depth -ge 2 ]]; then
+    # 1-in-4 chance per eligible dir; guaranteed on last level
+    if [[ $depth -eq $max_depth || $((RANDOM % 4)) -eq 0 ]]; then
+      place_real=1
+    fi
+  fi
 
-# --- Path 3: ship/cargo/locked_chest ---
-mkdir -p "$BASE/ship/cargo/locked_chest"
-fake         "$BASE/ship/treasure.txt"
-fake         "$BASE/ship/cargo/treasure.txt"
-fake         "$BASE/ship/cargo/locked_chest/treasure.txt"
+  if [[ $place_real -eq 1 ]]; then
+    echo "You found it! The password is: B4SH" > "$path/treasure.txt"
+    TREASURE_PLACED=1
+  else
+    fake "$path/treasure.txt"
+  fi
 
-# --- Path 4: village/market/back_alley ---
-mkdir -p "$BASE/village/market/back_alley"
-fake         "$BASE/village/treasure.txt"
-fake         "$BASE/village/market/treasure.txt"
-fake         "$BASE/village/market/back_alley/treasure.txt"
+  # Stop recursing at max depth
+  if [[ $depth -ge $max_depth ]]; then
+    return
+  fi
 
-# --- Path 5: swamp/fog/quicksand ---
-mkdir -p "$BASE/swamp/fog/quicksand"
-fake         "$BASE/swamp/treasure.txt"
-fake         "$BASE/swamp/fog/treasure.txt"
-fake         "$BASE/swamp/fog/quicksand/treasure.txt"
+  # Create 1-3 random subdirs
+  local num_dirs=$(( (RANDOM % 3) + 1 ))
+  for ((i=0; i<num_dirs; i++)); do
+    local subdir_name
+    subdir_name=$(pick_name)
+    # Append index to avoid sibling collisions
+    local subdir_path="$path/${subdir_name}_${i}"
+    mkdir -p "$subdir_path"
+    build_dir "$subdir_path" $((depth + 1)) "$max_depth"
+  done
+}
 
-# --- A clue file at the very top to get them started ---
+# ============================================================
+# ROOT — same 5 themed dirs as before
+# ============================================================
+ROOT_DIRS=("island" "forest" "ship" "village" "swamp")
+
+for dir in "${ROOT_DIRS[@]}"; do
+  mkdir -p "$BASE/$dir"
+  build_dir "$BASE/$dir" 1 4
+done
+
+# Safety net: if treasure was never placed (rare), force it into a leaf
+if [[ $TREASURE_PLACED -eq 0 ]]; then
+  # Find any deepest treasure.txt and overwrite it
+  LEAF=$(find "$BASE" -name "treasure.txt" | sort | tail -1)
+  echo "You found it! The password is: B4SH" > "$LEAF"
+fi
+
+# ============================================================
+# README at root
+# ============================================================
 cat > "$BASE/README.txt" << 'EOF'
 🏴‍☠️  WELCOME TO THE BASH TREASURE HUNT  🏴‍☠️
 
@@ -81,5 +130,7 @@ Good luck, pirate. The treasure is buried deep...
 EOF
 
 echo "✅  Treasure hunt created in ./$BASE/"
-echo "    Share the '$BASE' folder with students."
-echo "    Find the winning phrase!"
+echo "    The winning phrase is: B4SH"
+echo ""
+echo "🗺  Tree preview:"
+find "$BASE" -name "treasure.txt" | sort
